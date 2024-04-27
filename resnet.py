@@ -123,7 +123,7 @@ class Bottleneck(nn.Module):
 
         return out
 
-class Resnet(nn.Module):
+class ResNet(nn.Module):
     def __init__(
         self,
         block,
@@ -136,7 +136,7 @@ class Resnet(nn.Module):
         norm_layer=None,
         in_channels=3,
     ):
-        super(Resnet, self).__init__()
+        super(ResNet, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
