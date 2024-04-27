@@ -16,7 +16,7 @@
 	"max_plateau_count": 8,
 	"plateau_patience": 2,
 	"steplr": 50,
-	"log_dir": "log",
-	"checkpoint_dir": "checkpoint",
+	"log_dir": "C:/Users/menon/OneDrive/University/Code/Pytorch/Facial Emotion Recognition/log",
+	"checkpoint_dir": "C:/Users/menon/OneDrive/University/Code/Pytorch/Facial Emotion Recognition/checkpoint",
 	"model_name": "test"
 }
