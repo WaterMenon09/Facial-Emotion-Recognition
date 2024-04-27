@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .utils import load_state_dict_from_url
+from utils import load_state_dict_from_url
 
 __all__ = ["Resnet", "resnet50"]
 model_urls = {"resnet50":"https://download.pytorch.org/models/resnet50-19c8e357.pth"}
