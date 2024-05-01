@@ -191,5 +191,199 @@ class FER2013Trainer(Trainer):
         self._train_loss.append(train_loss / i)
         self._train_acc.append(train_acc / i)
 
-        #risidualmaskingnetwork/trainers/_fer2013_trainer.py
-        #line 211
+    def _val(self):
+        self._model.eval()
+        val_loss = 0.0
+        val_acc = 0.0
+
+        with torch.no_grad():
+            for i, (images, targets) in tqdm(
+                enumerate(self._val_loader), total=len(self._val_loader), leave=False
+            ):
+                images = images.cuda(non_blocking=True)
+                targets = targets.cuda(non_blocking=True)
+                outputs = self._model(images)
+
+                #measuring accuracy and loss
+                loss = self._criterion(outputs, targets)
+                acc = accuracy(outputs, targets)[0]
+
+                val_loss += loss.item()
+                val_acc += acc.item()
+
+            i += 1
+            self._val_loss.append(val_loss / i)
+            self._val_acc.append(val_acc / i)
+
+    def _calc_acc_on_private_test(self):
+        self._model.eval()
+        test_acc = 0.0
+        print("Calc accuracy on private test..")
+
+        with torch.no_grad():
+            for i, (images, targets) in tqdm(
+                enumerate(self._test_loader), total=len(self._test_loader), leave=False
+            ):
+                images = images.cuda(non_blocking=True)
+                targets = targets.cuda(non_blocking=True)
+
+                outputs = self._model(images)
+                acc = accuracy(outputs, targets)[0]
+                test_acc += acc.item()
+
+            test_acc = test_acc / (i + 1)
+        print("Accuracy on private test: {:.3f}".format(test_acc))
+        return test_acc
+    
+    def _calc_acc_on_private_test_with_tta(self):
+        self._model.eval()
+        test_acc = 0.0
+        print("Calc accuracy on private test..")
+
+        transform = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+            ]
+        )
+
+        for idx in len(self._test_set):
+            image, label = self._test_set[idx]
+
+        with torch.no_grad():
+            for i, (images, targets) in tqdm(
+                enumerate(self._test_loader), total=len(self._test_loader), leave=False
+            ):
+
+                # TODO: implement augment when predict
+                images = images.cuda(non_blocking=True)
+                targets = targets.cuda(non_blocking=True)
+
+                outputs = self._model(images)
+                acc = accuracy(outputs, targets)[0]
+                test_acc += acc.item()
+
+            test_acc = test_acc / (i + 1)
+        print("Accuracy on private test: {:.3f}".format(test_acc))
+        return test_acc
+    
+    def _calc_acc_on_private_test(self):
+        self._model.eval()
+        test_acc = 0.0
+        print("Calc acc on private test..")
+
+        with torch.no_grad():
+            for i, (images, targets) in tqdm(
+                enumerate(self._test_loader), total=len(self._test_loader), leave=False
+            ):
+                images = images.cuda(non_blocking=True)
+                targets = targets.cuda(non_blocking=True)
+
+                outputs = self._model(images)
+                acc = accuracy(outputs, targets)[0]
+                test_acc += acc.item()
+
+            test_acc = test_acc / (i + 1)
+        print("Accuracy on private test: {:.3f}".format(test_acc))
+        return test_acc
+    
+    def train(self):
+        """make a training job"""
+        print(self._model)
+        while not self._is_stop():
+            self._increase_epoch_num()
+            self._train()
+            self._val()
+
+            self._update_training_state()
+            self._logging()
+        
+        try:
+            state = torch.load(self._checkpoint_path)
+            if self._distributed:
+                self._model.module.load_state_dict(state["net"])
+            else:
+                self._model.load_state_dict(state["net"])
+            # self._test_acc = self._calc_acc_on_private_test()
+            self._calc_acc_on_private_test_with_tta()
+            self._save_weights()
+        except Exception as e:
+            print("Testing error when training stop")
+            print(e)
+
+        self._writer.add_text(
+            "Summary", "Converged after {} epochs".format(self._current_epoch_num)
+        )
+        self._writer.add_text(
+            "Summary",
+            "Best validation accuracy: {:.3f}".format(self._current_epoch_num),
+        )
+        self._writer.add_text(
+            "Summary", "Private test accuracy: {:.3f}".format(self._test_acc)
+        )
+        self._writer.close()
+
+    def _update_training_state(self):
+        if self._val_acc[-1] > self._best_acc:
+            self._save_weights()
+            self._plateau_count = 0
+            self._best_acc = self._val_acc[-1]
+            self._best_loss = self._val_loss[-1]
+        else:
+            self._plateau_count += 1
+
+        self._scheduler.step(100 - self._val_acc[-1])
+        
+    def _logging(self):
+        consume_time = str(datetime.datetime.now() - self._start_time)
+
+        message = "\nE{:03d}  {:.3f}/{:.3f}/{:.3f} {:.3f}/{:.3f}/{:.3f} | p{:02d}  Time {}\n".format(
+            self._current_epoch_num,
+            self._train_loss[-1],
+            self._val_loss[-1],
+            self._best_loss,
+            self._train_acc[-1],
+            self._val_acc[-1],
+            self._best_acc,
+            self._plateau_count,
+            consume_time[:-7],
+        )
+
+        self._writer.add_scalar(
+            "Accuracy/Train", self._train_acc[-1], self._current_epoch_num
+        )
+        self._writer.add_scalar(
+            "Accuracy/Val", self._val_acc[-1], self._current_epoch_num
+        )
+        self._writer.add_scalar(
+            "Loss/Train", self._train_loss[-1], self._current_epoch_num
+        )
+        self._writer.add_scalar("Loss/Val", self._val_loss[-1], self._current_epoch_num)
+        print(message)
+
+    def _is_stop(self):
+        """Stop condition"""
+        return (
+            self._plateau_count > self._max_plateau_count
+            or self._current_epoch_num > self._max_epoch_num
+        )
+    
+    def _increase_epoch_num(self):
+        self._current_epoch_num += 1
+
+    def _save_weights(self, test_acc=0.0):
+        if self._distributed == 0:
+            state_dict = self._model.state_dict()
+        else:
+            state_dict = self._model.module.state_dict()
+        state = {
+            **self._configs,
+            "net": state_dict,
+            "best_loss": self._best_loss,
+            "best_acc": self._best_acc,
+            "train_losses": self._train_loss,
+            "val_loss": self._val_loss,
+            "train_acc": self._train_acc,
+            "val_acc": self._val_acc,
+            "test_acc": self._test_acc,
+        }
+        torch.save(state, self._checkpoint_path)
