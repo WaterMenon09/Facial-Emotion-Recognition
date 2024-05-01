@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from utils.utility import load_state_dict_from_url
+import utils
 
-__all__ = ["Resnet", "resnet50"]
+__all__ = ["resnet50"]
 model_urls = {"resnet50":"https://download.pytorch.org/models/resnet50-19c8e357.pth"}
 
 #convolution 3x3 w/ paddding
@@ -255,7 +255,7 @@ class ResNet(nn.Module):
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
     if pretrained:
-        state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
+        state_dict = utils.load_state_dict_from_url(model_urls[arch], progress=progress)
         model.load_state_dict(state_dict)
     return model
 

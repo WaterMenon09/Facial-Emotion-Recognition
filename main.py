@@ -19,21 +19,10 @@ np.random.seed(seed)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
-
 import models
-from models import segmentation
 
 
 def main(config_path):
-    """
-    This is the main function to make the training up
-
-    Parameters:
-    -----------
-    config_path : srt
-        path to config file
-    """
-    # load configs and set random seed
     configs = json.load(open(config_path))
     configs["cwd"] = os.getcwd()
 
@@ -43,10 +32,7 @@ def main(config_path):
     train_set, val_set, test_set = get_dataset(configs)
 
     # init trainer and make a training
-    # from trainers.fer2013_trainer import FER2013Trainer
     from tta_trainer import FER2013Trainer
-
-    # from trainers.centerloss_trainer import FER2013Trainer
     trainer = FER2013Trainer(model, train_set, val_set, test_set, configs)
 
     if configs["distributed"] == 1:
@@ -65,19 +51,12 @@ def get_model(configs):
     configs : dict
         configs dictionary
     """
-    try:
-        return models.__dict__[configs["arch"]]
-    except KeyError:
-        return segmentation.__dict__[configs["arch"]]
+
+    return models.__dict__[configs["arch"]]
 
 
 def get_dataset(configs):
-    """
-    This function get raw dataset
-    """
     from utils.fer2013dataset import fer2013
-
-    # todo: add transform
     train_set = fer2013("train", configs)
     val_set = fer2013("val", configs)
     test_set = fer2013("test", configs, tta=True, tta_size=10)
