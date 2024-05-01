@@ -18,5 +18,5 @@
 	"steplr": 50,
 	"log_dir": "C:/Users/menon/OneDrive/University/Code/Pytorch/Facial Emotion Recognition/log",
 	"checkpoint_dir": "C:/Users/menon/OneDrive/University/Code/Pytorch/Facial Emotion Recognition/checkpoint",
-	"model_name": "test"
+	"model_name": "testrun.v1"
 }
